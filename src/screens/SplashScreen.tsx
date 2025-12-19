@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, Image, StyleSheet} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../navigation/types';
+import {RootStackParamList} from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SplashScreen'>;
 
@@ -16,8 +16,11 @@ const SplashScreen: React.FC<Props> = ({navigation}) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to MyApp</Text>
-      <Text style={styles.subtitle}>Loading...</Text>
+      <Image
+        source={require('../assets/images/logo_lumify.jpg')}
+        style={styles.logo}
+        resizeMode="cover"
+      />
     </View>
   );
 };
@@ -31,14 +34,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#161718ff',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    marginTop: 10,
+  logo: {
+    width: 140,
+    height: 140,
+    borderRadius: 12,
   },
 });
