@@ -1,29 +1,74 @@
-import React, {useEffect} from 'react';
-import {View, Image, StyleSheet} from 'react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../types/navigation';
+import React, { Component } from 'react';
+import { View, Image, StyleSheet } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Login } from '../api/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SplashScreen'>;
 
-const SplashScreen: React.FC<Props> = ({navigation}) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('LoginScreen');
-    }, 3000);
+class SplashScreen extends Component<Props> {
+  timer?: NodeJS.Timeout;
 
-    return () => clearTimeout(timer);
-  }, [navigation]);
+  componentDidMount() {
+    this.checkLogin();
+    // this.timer = setTimeout(() => {
+    //   this.props.navigation.replace('LoginScreen');
+    // }, 3000);
+  }
 
-  return (
-    <View style={styles.container}>
-      <Image
-        source={require('../assets/images/logo_lumify.jpg')}
-        style={styles.logo}
-        resizeMode="cover"
-      />
-    </View>
-  );
-};
+  componentWillUnmount() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+    }
+  }
+  checkLogin = async () => {
+    try {
+      const username = await AsyncStorage.getItem('username');
+      const password = await AsyncStorage.getItem('password');
+
+      if (username && password) {
+        try {
+          const result = await Login(username, password);
+          console.log('Login response:', result);
+
+          if (result.status === 'LoginSuccess') {
+            await AsyncStorage.setItem('username', username);
+            await AsyncStorage.setItem('password', password);
+            // Save tokens and user data
+            await AsyncStorage.setItem('token', result.token);
+            await AsyncStorage.setItem('refreshToken', result.refreshToken);
+            await AsyncStorage.setItem('emp_Name', result.emp_Name);
+            await AsyncStorage.setItem('photo', result.photo);
+            this.props.navigation.replace('DrawerNavigator', {
+              emp_Name: result.emp_Name,
+              photo: result.photo,
+            });
+          }
+        } catch (error) {
+          console.error('Error during login:', error);
+          this.props.navigation.replace('LoginScreen');
+        }
+      } else {
+        this.props.navigation.replace('LoginScreen');
+      }
+    } catch (error) {
+      console.error('Error checking login status:', error);
+      this.props.navigation.replace('LoginScreen');
+    }
+  };
+  render() {
+    return (
+      <View style={styles.container}>
+        <Image
+          source={require('../assets/images/logo_lumify.jpg')}
+          style={styles.logo}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+}
 
 export default SplashScreen;
 
