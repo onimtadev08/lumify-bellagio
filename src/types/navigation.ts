@@ -1,13 +1,20 @@
+import { NewsItem } from './news';
+
 // types/navigation.ts
 export type RootStackParamList = {
-  SplashScreen: undefined;
   LoginScreen: undefined;
-  DrawerNavigator: {
+  DashboardScreen: {
     emp_Name: string;
     photo: string;
   };
+  SalarySlip: undefined;
+  BalanceLeave: undefined;
+  AttendanceCard: undefined;
+  DailyPaymentList: undefined;
+  Settings: undefined;
+  NewsList: undefined; // Add this
+  NewsDetail: { newsItem: NewsItem }; // Add this
 };
-
 export type DrawerParamList = {
   DashboardScreen: {
     emp_Name: string;
@@ -17,4 +24,12 @@ export type DrawerParamList = {
     emp_Name: string;
     photo: string;
   };
+  SalarySlip: undefined;
+  BalanceLeave: undefined;
+  AttendanceCard: undefined;
+  DailyPaymentList: undefined;
+  Settings: undefined;
+  NewsList: undefined; // Add this
+  NewsDetail: { newsItem: NewsItem };
+  SupportScreen: undefined;
 };

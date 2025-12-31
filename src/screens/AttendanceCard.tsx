@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { GetAttendanceCard } from '../api/api';
 import Feather from '@react-native-vector-icons/feather';
+import { ThemeContext, Theme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
-const ColorFirst = '#1a1a1a';
 const ColorSecond = '#B6771D';
 
 interface AttendanceData {
@@ -72,6 +72,9 @@ class AttendanceCard extends React.Component<
   AttendanceCardProps,
   AttendanceCardState
 > {
+  static contextType = ThemeContext;
+  context!: React.ContextType<typeof ThemeContext>;
+
   constructor(props: AttendanceCardProps) {
     super(props);
     const currentDate = new Date();
@@ -161,8 +164,29 @@ class AttendanceCard extends React.Component<
         return '#fff';
     }
   };
+  getMonthDisplay = (month: string): string => {
+    if (width < 375) {
+      const monthIndex = MONTHS.indexOf(month);
+      const abbreviated = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return abbreviated[monthIndex];
+    }
+    return month;
+  };
 
-  renderMonthPicker = () => {
+  renderMonthPicker = (theme: Theme) => {
     return (
       <Modal
         transparent={true}
@@ -176,15 +200,21 @@ class AttendanceCard extends React.Component<
         >
           <View style={styles.pickerContainer}>
             <View
-              style={[styles.pickerContent, { backgroundColor: '#242424' }]}
+              style={[
+                styles.pickerContent,
+                { backgroundColor: theme.cardBackground },
+              ]}
             >
-              <Text style={styles.pickerTitle}>Select Month</Text>
+              <Text style={[styles.pickerTitle, { color: theme.text }]}>
+                Select Month
+              </Text>
               <ScrollView style={styles.pickerScroll}>
                 {MONTHS.map(month => (
                   <TouchableOpacity
                     key={month}
                     style={[
                       styles.pickerItem,
+                      { backgroundColor: theme.inputBackground },
                       month === this.state.selectedMonth &&
                         styles.pickerItemSelected,
                     ]}
@@ -199,6 +229,7 @@ class AttendanceCard extends React.Component<
                     <Text
                       style={[
                         styles.pickerItemText,
+                        { color: theme.text },
                         month === this.state.selectedMonth &&
                           styles.pickerItemTextSelected,
                       ]}
@@ -218,7 +249,7 @@ class AttendanceCard extends React.Component<
     );
   };
 
-  renderYearPicker = () => {
+  renderYearPicker = (theme: Theme) => {
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
@@ -235,15 +266,21 @@ class AttendanceCard extends React.Component<
         >
           <View style={styles.pickerContainer}>
             <View
-              style={[styles.pickerContent, { backgroundColor: '#242424' }]}
+              style={[
+                styles.pickerContent,
+                { backgroundColor: theme.cardBackground },
+              ]}
             >
-              <Text style={styles.pickerTitle}>Select Year</Text>
+              <Text style={[styles.pickerTitle, { color: theme.text }]}>
+                Select Year
+              </Text>
               <ScrollView style={styles.pickerScroll}>
                 {years.map(year => (
                   <TouchableOpacity
                     key={year}
                     style={[
                       styles.pickerItem,
+                      { backgroundColor: theme.inputBackground },
                       year === this.state.selectedYear &&
                         styles.pickerItemSelected,
                     ]}
@@ -258,6 +295,7 @@ class AttendanceCard extends React.Component<
                     <Text
                       style={[
                         styles.pickerItemText,
+                        { color: theme.text },
                         year === this.state.selectedYear &&
                           styles.pickerItemTextSelected,
                       ]}
@@ -395,9 +433,11 @@ class AttendanceCard extends React.Component<
     );
   };
 
-  renderCalendarDay = (item: AttendanceData) => {
+  renderCalendarDay = (item: AttendanceData, theme: Theme) => {
     const hasData = item.Status && item.Status !== '';
-    const color = hasData ? this.getStatusColor(item.Status) : '#2a2a2a';
+    const color = hasData
+      ? this.getStatusColor(item.Status)
+      : theme.inputBackground;
 
     return (
       <TouchableOpacity
@@ -427,13 +467,17 @@ class AttendanceCard extends React.Component<
               )}
             </>
           )}
-          {!hasData && <Text style={styles.noDataText}>-</Text>}
+          {!hasData && (
+            <Text style={[styles.noDataText, { color: theme.textSecondary }]}>
+              -
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
   };
 
-  renderSummary = () => {
+  renderSummary = (theme: Theme) => {
     const { attendanceData } = this.state;
     if (attendanceData.length === 0) return null;
 
@@ -448,10 +492,17 @@ class AttendanceCard extends React.Component<
 
     return (
       <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#242424' }]}>
+        <View
+          style={[
+            styles.summaryCard,
+            { backgroundColor: theme.cardBackground },
+          ]}
+        >
           <View style={styles.summaryHeader}>
             <Feather name="bar-chart-2" size={20} color={ColorSecond} />
-            <Text style={styles.summaryTitle}>Monthly Summary</Text>
+            <Text style={[styles.summaryTitle, { color: theme.text }]}>
+              Monthly Summary
+            </Text>
           </View>
 
           <View style={styles.summaryStats}>
@@ -499,19 +550,24 @@ class AttendanceCard extends React.Component<
   };
 
   render() {
+    const { theme } = this.context;
     const { attendanceData, loading, error } = this.state;
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View
+          style={[styles.header, { backgroundColor: theme.headerBackground }]}
+        >
           <TouchableOpacity
             onPress={() => this.props.navigation?.goBack()}
             style={styles.backButton}
           >
             <Feather name="arrow-left" size={24} color={ColorSecond} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Attendance Card</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            Attendance Card
+          </Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -527,15 +583,37 @@ class AttendanceCard extends React.Component<
               onPress={() => this.setState({ showMonthPicker: true })}
               activeOpacity={0.8}
             >
-              <View style={[styles.selector, { backgroundColor: '#242424' }]}>
+              <View
+                style={[
+                  styles.selector,
+                  { backgroundColor: theme.cardBackground },
+                ]}
+              >
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <View style={styles.selectorTextContainer}>
-                  <Text style={styles.selectorLabel}>Month</Text>
-                  <Text style={styles.selectorValue}>
-                    {this.state.selectedMonth}
+                  <Text
+                    style={[
+                      styles.selectorLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Month
+                  </Text>
+                  <Text
+                    style={[styles.selectorValue, { color: theme.text }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {this.getMonthDisplay(this.state.selectedMonth)}
                   </Text>
                 </View>
-                <Feather name="chevron-down" size={20} color="#999" />
+                <Feather
+                  name="chevron-down"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </View>
             </TouchableOpacity>
 
@@ -544,15 +622,35 @@ class AttendanceCard extends React.Component<
               onPress={() => this.setState({ showYearPicker: true })}
               activeOpacity={0.8}
             >
-              <View style={[styles.selector, { backgroundColor: '#242424' }]}>
+              <View
+                style={[
+                  styles.selector,
+                  { backgroundColor: theme.cardBackground },
+                ]}
+              >
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <View style={styles.selectorTextContainer}>
-                  <Text style={styles.selectorLabel}>Year</Text>
-                  <Text style={styles.selectorValue}>
+                  <Text
+                    style={[
+                      styles.selectorLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Year
+                  </Text>
+                  <Text
+                    style={[styles.selectorValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
                     {this.state.selectedYear}
                   </Text>
                 </View>
-                <Feather name="chevron-down" size={20} color="#999" />
+                <Feather
+                  name="chevron-down"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </View>
             </TouchableOpacity>
           </View>
@@ -588,19 +686,25 @@ class AttendanceCard extends React.Component<
           )}
 
           {/* Summary */}
-          {this.renderSummary()}
+          {this.renderSummary(theme)}
 
           {/* Calendar Grid */}
           {attendanceData.length > 0 && (
             <View style={styles.calendarContainer}>
               <View style={styles.sectionHeader}>
                 <Feather name="grid" size={20} color={ColorSecond} />
-                <Text style={styles.sectionTitle}>Daily Attendance</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Daily Attendance
+                </Text>
               </View>
               <View style={styles.calendarGrid}>
-                {attendanceData.map(item => this.renderCalendarDay(item))}
+                {attendanceData.map(item =>
+                  this.renderCalendarDay(item, theme),
+                )}
               </View>
-              <Text style={styles.calendarHint}>
+              <Text
+                style={[styles.calendarHint, { color: theme.textSecondary }]}
+              >
                 Tap on any day to view details
               </Text>
             </View>
@@ -610,10 +714,16 @@ class AttendanceCard extends React.Component<
           {!loading && attendanceData.length === 0 && !error && (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
-                <Feather name="calendar" size={48} color="#666" />
+                <Feather
+                  name="calendar"
+                  size={48}
+                  color={theme.textSecondary}
+                />
               </View>
-              <Text style={styles.emptyTitle}>No Attendance Data</Text>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                No Attendance Data
+              </Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                 Select a month and year, then tap "Get Attendance Card" to view
                 your attendance details
               </Text>
@@ -622,8 +732,8 @@ class AttendanceCard extends React.Component<
         </ScrollView>
 
         {/* Modals */}
-        {this.renderMonthPicker()}
-        {this.renderYearPicker()}
+        {this.renderMonthPicker(theme)}
+        {this.renderYearPicker(theme)}
         {this.renderDayDetailsModal()}
       </View>
     );
@@ -633,7 +743,6 @@ class AttendanceCard extends React.Component<
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ColorFirst,
   },
   header: {
     flexDirection: 'row',
@@ -642,7 +751,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#242424',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     elevation: 4,
@@ -664,7 +772,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
   },
   placeholder: {
     width: 44,
@@ -678,36 +785,38 @@ const styles = StyleSheet.create({
   },
   selectorsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10, // Reduced from 12
     marginBottom: 20,
   },
   selectorHalf: {
     flex: 1,
+    minWidth: 0, // Allows proper shrinking
   },
   selector: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12, // Reduced from 16
     borderRadius: 16,
-    gap: 12,
+    gap: 8, // Reduced from 12
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    minHeight: 56, // Ensures consistent height
   },
   selectorTextContainer: {
     flex: 1,
+    minWidth: 0, // Critical: allows flex child to shrink
+    paddingHorizontal: 2, // Small padding for text breathing room
   },
   selectorLabel: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11, // Slightly smaller
     marginBottom: 2,
   },
   selectorValue: {
-    fontSize: 16,
+    fontSize: 15, // Slightly reduced from 16
     fontWeight: 'bold',
-    color: '#fff',
   },
   checkButton: {
     flexDirection: 'row',
@@ -766,7 +875,6 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
   },
   summaryStats: {
     flexDirection: 'row',
@@ -806,7 +914,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -857,11 +964,9 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     fontSize: 14,
-    color: '#666',
   },
   calendarHint: {
     fontSize: 12,
-    color: '#999',
     textAlign: 'center',
     marginTop: 12,
     fontStyle: 'italic',
@@ -884,12 +989,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -915,7 +1018,6 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -929,7 +1031,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: 'rgba(182, 119, 29, 0.05)',
   },
   pickerItemSelected: {
     backgroundColor: 'rgba(182, 119, 29, 0.2)',

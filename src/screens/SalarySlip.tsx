@@ -6,10 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
-  Platform,
+  FlatList,
 } from 'react-native';
-import { ColorFirst, ColorSecond, MessageType } from '../data/data';
+import { ColorSecond, MessageType } from '../data/data';
 import Feather from '@react-native-vector-icons/feather';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +23,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import RNPrint from 'react-native-print';
 import MessageBox from '../Components/MessageBox';
+import { ThemeContext, Theme } from '../contexts/ThemeContext';
 
 interface SalarySlipProps {
   navigation?: any;
@@ -42,31 +42,26 @@ interface SalarySlipState {
   showMessage: boolean;
   messageType: MessageType;
   messageText: string;
+  showEmptyState: boolean; // New state for empty state
 }
 
-// Zoomable Slip Component using new Gesture API
+// Zoomable Slip Component
 const ZoomableSlip = ({
   content,
   resetKey,
+  theme,
 }: {
   content: string;
   resetKey: number;
+  theme: Theme;
 }) => {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
 
   // Reset zoom when resetKey changes
   React.useEffect(() => {
     scale.value = withSpring(1);
     savedScale.value = 1;
-    translateX.value = withSpring(0);
-    translateY.value = withSpring(0);
-    savedTranslateX.value = 0;
-    savedTranslateY.value = 0;
   }, [resetKey]);
 
   const pinchGesture = Gesture.Pinch()
@@ -74,7 +69,6 @@ const ZoomableSlip = ({
       scale.value = savedScale.value * e.scale;
     })
     .onEnd(() => {
-      // Clamp scale between 0.5 and 3
       if (scale.value < 0.5) {
         scale.value = withSpring(0.5);
       } else if (scale.value > 3) {
@@ -83,36 +77,34 @@ const ZoomableSlip = ({
       savedScale.value = scale.value;
     });
 
-  const panGesture = Gesture.Pan()
-    .onUpdate(e => {
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
-    })
-    .onEnd(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
-    });
-
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
       scale.value = withSpring(1);
       savedScale.value = 1;
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
     });
 
-  const composed = Gesture.Simultaneous(pinchGesture, panGesture, doubleTap);
+  const composed = Gesture.Simultaneous(pinchGesture, doubleTap);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ scale: scale.value }],
   }));
+
+  const styles = StyleSheet.create({
+    slipContainer: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.3)',
+    },
+    slipText: {
+      fontSize: 13,
+      color: theme.text,
+      fontFamily: 'Courier',
+      lineHeight: 20,
+    },
+  });
 
   return (
     <GestureDetector gesture={composed}>
@@ -124,6 +116,9 @@ const ZoomableSlip = ({
 };
 
 class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
+  static contextType = ThemeContext;
+  context!: React.ContextType<typeof ThemeContext>;
+
   private currentYear: number;
   private currentMonth: number;
   private years: number[];
@@ -131,13 +126,10 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
 
   constructor(props: SalarySlipProps) {
     super(props);
-
     this.currentYear = new Date().getFullYear();
     this.currentMonth = new Date().getMonth();
 
-    // Generate years (current year and past 5 years)
     this.years = Array.from({ length: 6 }, (_, i) => this.currentYear - i);
-
     this.months = [
       'January',
       'February',
@@ -166,8 +158,20 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
       showMessage: false,
       messageType: 'info',
       messageText: '',
+      showEmptyState: false, // Initialize new state
     };
   }
+
+  // Helper function to check if result is empty
+  isResultEmpty = (result: any): boolean => {
+    if (Array.isArray(result)) {
+      return result.length === 0;
+    }
+    if (typeof result === 'string') {
+      return result.trim().length === 0;
+    }
+    return !result || result === null || result === undefined;
+  };
 
   handleGoBack = () => {
     if (this.props.navigation) {
@@ -179,51 +183,75 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
     this.setState({
       showSlip: false,
       slipContent: null,
+      showEmptyState: false, // Reset empty state
     });
   };
 
   handleGetSalarySlip = async () => {
     const { selectedMonth, selectedYear } = this.state;
-
-    // Convert month index to zero-padded string (0 -> "01", 10 -> "11")
     const monthNumber = (selectedMonth + 1).toString().padStart(2, '0');
 
     try {
       this.setState({ isLoading: true });
-      const result = await CreateSlip(monthNumber, selectedYear.toString());
+      const response: any = await CreateSlip(
+        monthNumber,
+        selectedYear.toString(),
+      );
+      console.log('API response:', response);
 
-      if (result && result.trim().length > 0) {
+      // Normalize response shape — some responses come back as JSON string
+      let payload: any = response;
+      if (typeof response === 'string') {
+        try {
+          payload = JSON.parse(response);
+        } catch (e) {
+          console.warn('Failed to parse CreateSlip response string:', e);
+          payload = { status: false, result: null };
+        }
+      }
+
+      const result = payload?.result ?? null;
+      const isEmptyResult = this.isResultEmpty(result);
+      console.log('Is Result Empty:', isEmptyResult);
+
+      if (isEmptyResult) {
         this.setState({
           isLoading: false,
-          slipContent: result,
           showSlip: true,
+          slipContent: null,
+          showEmptyState: true,
         });
       } else {
-        this.setState({ isLoading: false });
-        Alert.alert('No Data', 'No salary slip found for the selected month.');
+        this.setState({
+          isLoading: false,
+          slipContent: String(result),
+          showSlip: true,
+          showEmptyState: false,
+        });
       }
     } catch (error) {
-      this.setState({ isLoading: false });
+      this.setState({
+        isLoading: false,
+        showSlip: false,
+        slipContent: null,
+        showEmptyState: false,
+      });
       console.error('Error:', error);
-      Alert.alert(
-        'Error',
-        'Unable to fetch salary slip. Please try again later.',
+      this.showMessageDialog(
+        'error',
+        'Failed to fetch salary slip. Please try again.',
       );
     }
   };
 
   handleResetZoom = () => {
-    // Increment the key to trigger reset
     this.setState(prevState => ({
       resetZoomKey: prevState.resetZoomKey + 1,
     }));
   };
 
-  // Convert slip content to HTML for PDF generation
   generateHTMLContent = () => {
     const { slipContent, selectedMonth, selectedYear } = this.state;
-
-    // Escape HTML special characters and convert newlines to <br>
     const escapedContent =
       slipContent
         ?.replace(/&/g, '&amp;')
@@ -278,17 +306,12 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
     `;
   };
 
-  // Download salary slip as PDF
   handleDownloadPDF = async () => {
     try {
       this.setState({ isDownloading: true });
-
       const { selectedMonth, selectedYear } = this.state;
-
-      // Generate HTML content
       const htmlContent = this.generateHTMLContent();
 
-      // Print to PDF using react-native-print
       await RNPrint.print({
         html: htmlContent,
         fileName: `SalarySlip_${this.months[selectedMonth]}_${selectedYear}`,
@@ -297,12 +320,9 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
       this.setState({ isDownloading: false });
     } catch (error) {
       this.setState({ isDownloading: false });
-
-      // If user cancelled, don't show error
       if (error === 'User cancelled') {
         return;
       }
-
       console.error('Error generating PDF:', error);
       this.showMessageDialog(
         'error',
@@ -338,6 +358,7 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
       showMonthPicker: false,
     });
   };
+
   showMessageDialog = (
     type: 'success' | 'error' | 'info' | 'confirmation',
     message: string,
@@ -356,19 +377,56 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
   handleMessagePress = () => {
     this.hideMessage();
   };
+
+  renderEmptyState = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
+    const { selectedMonth, selectedYear } = this.state;
+
+    return (
+      <View style={styles.emptyStateContainer}>
+        <View style={styles.emptyIconContainer}>
+          <Feather name="file-text" size={48} color={theme.textSecondary} />
+        </View>
+        <Text style={styles.emptyStateTitle}>No Salary Slip Found</Text>
+        <Text style={styles.emptyStateText}>
+          No salary slip is available for{' '}
+          <Text style={styles.emptyStateHighlight}>
+            {this.months[selectedMonth]} {selectedYear}
+          </Text>
+        </Text>
+        <Text style={styles.emptyStateSubtext}>
+          Please try selecting a different month or contact HR if you believe
+          this is an error.
+        </Text>
+      </View>
+    );
+  };
+
   renderSlipView = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
     const {
       selectedYear,
       selectedMonth,
       slipContent,
       resetZoomKey,
       isDownloading,
+      showEmptyState, // Use new state
     } = this.state;
+
+    // Check if content is empty or showing empty state
+    const hasContent =
+      slipContent && slipContent.trim().length > 0 && !showEmptyState;
 
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={ColorFirst} />
-
+        <StatusBar
+          barStyle={
+            theme === this.context.theme ? 'light-content' : 'dark-content'
+          }
+          backgroundColor={theme.background}
+        />
         {/* Header */}
         <SafeAreaView style={styles.header}>
           <TouchableOpacity
@@ -379,11 +437,10 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
             <FontAwesome6
               name="arrow-left"
               size={24}
-              color="white"
+              color={theme.text}
               iconStyle="solid"
             />
           </TouchableOpacity>
-
           <View style={styles.headerIconContainer}>
             <Feather name="file-text" size={28} color={ColorSecond} />
           </View>
@@ -398,76 +455,104 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
-          {/* Zoom Info Banner */}
-          <View style={styles.zoomInfoContainer}>
-            <Feather name="zoom-in" size={16} color={ColorSecond} />
-            <Text style={styles.zoomInfoText}>
-              Pinch to zoom • Pan to move • Double tap to reset
-            </Text>
-          </View>
+          {hasContent ? (
+            <>
+              {/* Zoom Info Banner */}
+              <View style={styles.zoomInfoContainer}>
+                <Feather name="zoom-in" size={16} color={ColorSecond} />
+                <Text style={styles.zoomInfoText}>
+                  Pinch to zoom • Double tap to reset
+                </Text>
+              </View>
 
-          {/* Salary Slip Content with Pinch Zoom */}
-          <View style={styles.slipWrapper}>
-            {slipContent && (
-              <ZoomableSlip content={slipContent} resetKey={resetZoomKey} />
-            )}
-          </View>
+              {/* Salary Slip Content with Pinch Zoom */}
+              <View style={styles.slipWrapper}>
+                <ZoomableSlip
+                  content={slipContent}
+                  resetKey={resetZoomKey}
+                  theme={theme}
+                />
+              </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtonsContainer}>
-            {/* Download as PDF Button */}
-            <TouchableOpacity
-              style={[styles.actionButton, styles.downloadButton]}
-              onPress={this.handleDownloadPDF}
-              activeOpacity={0.8}
-              disabled={isDownloading}
-            >
-              <Feather
-                name={isDownloading ? 'loader' : 'download'}
-                size={20}
-                color="#fff"
-              />
-              <Text style={styles.downloadButtonText}>
-                {isDownloading ? 'Generating PDF...' : 'Download as PDF'}
-              </Text>
-            </TouchableOpacity>
+              {/* Action Buttons */}
+              <View style={styles.actionButtonsContainer}>
+                {/* Download as PDF Button */}
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.downloadButton]}
+                  onPress={this.handleDownloadPDF}
+                  activeOpacity={0.8}
+                  disabled={isDownloading}
+                >
+                  <Feather
+                    name={isDownloading ? 'loader' : 'download'}
+                    size={20}
+                    color="#fff"
+                  />
+                  <Text style={styles.downloadButtonText}>
+                    {isDownloading ? 'Generating PDF...' : 'Download as PDF'}
+                  </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={this.handleResetZoom}
-              activeOpacity={0.8}
-            >
-              <Feather name="maximize" size={20} color={ColorSecond} />
-              <Text style={styles.actionButtonText}>Reset Zoom</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={this.handleResetZoom}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="maximize" size={20} color={ColorSecond} />
+                  <Text style={styles.actionButtonText}>Reset Zoom</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={this.handleBackToForm}
-              activeOpacity={0.8}
-            >
-              <Feather name="edit" size={20} color={ColorSecond} />
-              <Text style={styles.actionButtonText}>
-                Select Different Month
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={this.handleBackToForm}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="edit" size={20} color={ColorSecond} />
+                  <Text style={styles.actionButtonText}>
+                    Select Different Month
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Empty State */}
+              {this.renderEmptyState()}
+
+              {/* Back Button for Empty State */}
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={this.handleBackToForm}
+                activeOpacity={0.8}
+              >
+                <Feather name="arrow-left" size={20} color={ColorSecond} />
+                <Text style={styles.actionButtonText}>
+                  Select Different Month
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
 
-        {/* Show loader while downloading */}
         <Loader isShow={isDownloading} />
       </View>
     );
   };
 
   renderFormView = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
     const { selectedYear, selectedMonth, showYearPicker, showMonthPicker } =
       this.state;
 
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={ColorFirst} />
-
+        <StatusBar
+          barStyle={
+            theme === this.context.theme ? 'light-content' : 'dark-content'
+          }
+          backgroundColor={theme.background}
+        />
         {/* Header */}
         <SafeAreaView style={styles.header}>
           {/* Back Button */}
@@ -479,11 +564,10 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
             <FontAwesome6
               name="arrow-left"
               size={24}
-              color="white"
+              color={theme.text}
               iconStyle="solid"
             />
           </TouchableOpacity>
-
           <View style={styles.headerIconContainer}>
             <Feather name="dollar-sign" size={28} color={ColorSecond} />
           </View>
@@ -506,18 +590,15 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
               onPress={this.toggleYearPicker}
               activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={['#2a2a2a', '#1f1f1f']}
-                style={styles.pickerGradient}
-              >
+              <View style={styles.pickerGradient}>
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <Text style={styles.pickerText}>{selectedYear}</Text>
                 <Feather
                   name={showYearPicker ? 'chevron-up' : 'chevron-down'}
                   size={20}
-                  color="#999"
+                  color={theme.textSecondary}
                 />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             {/* Year Options */}
@@ -558,10 +639,7 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
               onPress={this.toggleMonthPicker}
               activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={['#2a2a2a', '#1f1f1f']}
-                style={styles.pickerGradient}
-              >
+              <View style={styles.pickerGradient}>
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <Text style={styles.pickerText}>
                   {this.months[selectedMonth]}
@@ -569,21 +647,22 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
                 <Feather
                   name={showMonthPicker ? 'chevron-up' : 'chevron-down'}
                   size={20}
-                  color="#999"
+                  color={theme.textSecondary}
                 />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             {/* Month Options */}
             {showMonthPicker && (
               <View style={styles.optionsContainer}>
-                <ScrollView
-                  style={styles.monthScrollView}
+                <FlatList
+                  data={this.months}
+                  keyExtractor={(item, index) => index.toString()}
                   showsVerticalScrollIndicator={false}
-                >
-                  {this.months.map((month, index) => (
+                  nestedScrollEnabled={true}
+                  style={styles.monthScrollView}
+                  renderItem={({ item: month, index }) => (
                     <TouchableOpacity
-                      key={month}
                       style={[
                         styles.optionItem,
                         selectedMonth === index && styles.selectedOption,
@@ -603,8 +682,8 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
                         <Feather name="check" size={18} color={ColorSecond} />
                       )}
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  )}
+                />
               </View>
             )}
           </View>
@@ -632,6 +711,7 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
             </View>
           </TouchableOpacity>
         </ScrollView>
+
         <Loader isShow={this.state.isLoading} />
         <MessageBox
           visible={this.state.showMessage}
@@ -645,240 +725,270 @@ class SalarySlip extends Component<SalarySlipProps, SalarySlipState> {
 
   render() {
     const { showSlip } = this.state;
-
     if (showSlip) {
       return this.renderSlipView();
     }
-
     return this.renderFormView();
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ColorFirst,
-  },
-  header: {
-    padding: 24,
-    paddingBottom: 30,
-    backgroundColor: '#242424',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    alignItems: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 90,
-    left: 24,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  headerIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(182, 119, 29, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(182, 119, 29, 0.3)',
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-  },
-  pickerSection: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 10,
-    marginLeft: 4,
-  },
-  pickerButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  pickerGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.3)',
-    borderRadius: 12,
-    height: 80,
-    justifyContent: 'space-between',
-  },
-  pickerText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 12,
-  },
-  optionsContainer: {
-    marginTop: 10,
-    backgroundColor: '#1f1f1f',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    overflow: 'hidden',
-  },
-  monthScrollView: {
-    maxHeight: 300,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  selectedOption: {
-    backgroundColor: 'rgba(182, 119, 29, 0.15)',
-  },
-  optionText: {
-    fontSize: 15,
-    color: '#999',
-    fontWeight: '500',
-  },
-  selectedOptionText: {
-    color: ColorSecond,
-    fontWeight: '600',
-  },
-  selectedDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(182, 119, 29, 0.1)',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.2)',
-  },
-  selectedDateText: {
-    fontSize: 14,
-    color: '#999',
-    marginLeft: 10,
-    flex: 1,
-  },
-  selectedDateHighlight: {
-    color: ColorSecond,
-    fontWeight: '600',
-  },
-  submitButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  submitGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    height: 70,
-    borderRadius: 12,
-    backgroundColor: 'rgba(173, 130, 20, 1)',
-  },
-  submitText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginLeft: 10,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  // Salary Slip View Styles
-  zoomInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(182, 119, 29, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.2)',
-  },
-  zoomInfoText: {
-    fontSize: 12,
-    color: '#999',
-    marginLeft: 8,
-    flex: 1,
-  },
-  slipWrapper: {
-    marginBottom: 20,
-    minHeight: 400,
-  },
-  slipContainer: {
-    backgroundColor: '#1f1f1f',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.3)',
-  },
-  slipText: {
-    fontSize: 13,
-    color: '#fff',
-    fontFamily: 'Courier',
-    lineHeight: 20,
-  },
-  actionButtonsContainer: {
-    gap: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2a2a2a',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.3)',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  downloadButton: {
-    backgroundColor: 'rgba(173, 130, 20, 1)',
-    borderColor: 'rgba(182, 119, 29, 0.5)',
-  },
-  downloadButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 10,
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    header: {
+      padding: 24,
+      paddingBottom: 30,
+      backgroundColor: theme.headerBackground,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      alignItems: 'center',
+    },
+    backButton: {
+      position: 'absolute',
+      top: 90,
+      left: 24,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(182, 119, 29, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    headerIconContainer: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: 'rgba(182, 119, 29, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+      borderWidth: 2,
+      borderColor: 'rgba(182, 119, 29, 0.3)',
+    },
+    headerTitle: {
+      fontSize: 26,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 8,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      paddingHorizontal: 20,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: 20,
+    },
+    pickerSection: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.text,
+      marginBottom: 10,
+      marginLeft: 4,
+    },
+    pickerButton: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    pickerGradient: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.3)',
+      borderRadius: 12,
+      height: 80,
+      justifyContent: 'space-between',
+      backgroundColor: theme.cardBackground,
+    },
+    pickerText: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+      marginLeft: 12,
+    },
+    optionsContainer: {
+      marginTop: 10,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.inputBorder,
+      overflow: 'hidden',
+    },
+    monthScrollView: {
+      maxHeight: 300,
+    },
+    optionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.inputBorder,
+    },
+    selectedOption: {
+      backgroundColor: 'rgba(182, 119, 29, 0.15)',
+    },
+    optionText: {
+      fontSize: 15,
+      color: theme.textSecondary,
+      fontWeight: '500',
+    },
+    selectedOptionText: {
+      color: ColorSecond,
+      fontWeight: '600',
+    },
+    selectedDateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(182, 119, 29, 0.1)',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.2)',
+    },
+    selectedDateText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginLeft: 10,
+      flex: 1,
+    },
+    selectedDateHighlight: {
+      color: ColorSecond,
+      fontWeight: '600',
+    },
+    submitButton: {
+      borderRadius: 12,
+      overflow: 'hidden',
+      marginTop: 10,
+    },
+    submitGradient: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      height: 70,
+      borderRadius: 12,
+      backgroundColor: ColorSecond,
+    },
+    submitText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: '700',
+      marginLeft: 10,
+      letterSpacing: 0.5,
+      textAlign: 'center',
+    },
+    zoomInfoContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(182, 119, 29, 0.1)',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.2)',
+    },
+    zoomInfoText: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginLeft: 8,
+      flex: 1,
+    },
+    slipWrapper: {
+      marginBottom: 20,
+      minHeight: 400,
+    },
+    actionButtonsContainer: {
+      gap: 12,
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.cardBackground,
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.3)',
+    },
+    actionButtonText: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '600',
+      marginLeft: 10,
+    },
+    downloadButton: {
+      backgroundColor: ColorSecond,
+      borderColor: 'rgba(182, 119, 29, 0.5)',
+    },
+    downloadButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '700',
+      marginLeft: 10,
+    },
+    // Empty State Styles
+    emptyStateContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 32,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: 'rgba(182, 119, 29, 0.1)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 24,
+      borderWidth: 2,
+      borderColor: 'rgba(182, 119, 29, 0.2)',
+    },
+    emptyStateTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    emptyStateText: {
+      fontSize: 16,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      marginBottom: 8,
+      lineHeight: 24,
+    },
+    emptyStateHighlight: {
+      color: ColorSecond,
+      fontWeight: '600',
+    },
+    emptyStateSubtext: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      marginTop: 12,
+      lineHeight: 20,
+      opacity: 0.8,
+    },
+  });
 
 export default React.memo(SalarySlip);

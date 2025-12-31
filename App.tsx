@@ -1,16 +1,17 @@
 // App.tsx
 import React from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
+import { StatusBar } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+import ThemedStatusBar from './src/Components/ThemedStatusBar';
+import { ThemeProvider } from './src/contexts/ThemeContext';
 
+function App() {
   return (
-    <>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+    <ThemeProvider>
+      <ThemedStatusBar />
       <AppNavigator />
-    </>
+    </ThemeProvider>
   );
 }
 

@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { GetDailyPayments } from '../api/api';
 import Feather from '@react-native-vector-icons/feather';
+import { ThemeContext, Theme } from '../contexts/ThemeContext';
+import { ThousandSeparator } from '../utilities/utilities';
 
 const { width } = Dimensions.get('window');
-const ColorFirst = '#1a1a1a';
 const ColorSecond = '#B6771D';
 
 interface DailyPayment {
@@ -55,6 +56,9 @@ const MONTHS = [
 ];
 
 class DailyPaymentList extends React.Component<Props, State> {
+  static contextType = ThemeContext;
+  context!: React.ContextType<typeof ThemeContext>;
+
   constructor(props: Props) {
     super(props);
     const currentDate = new Date();
@@ -134,9 +138,8 @@ class DailyPaymentList extends React.Component<Props, State> {
   };
 
   formatCurrency = (amount: number): string => {
-    return `Rs. ${amount.toFixed(2)}`;
+    return `Rs. ${ThousandSeparator(amount.toFixed(2))}`;
   };
-
   calculateTotals = () => {
     const { paymentData } = this.state;
     const total = paymentData.reduce((sum, item) => sum + item.Amount, 0);
@@ -146,11 +149,13 @@ class DailyPaymentList extends React.Component<Props, State> {
     const pending = paymentData
       .filter(item => item.IsPaid.toLowerCase() === 'pending')
       .reduce((sum, item) => sum + item.Amount, 0);
-
     return { total, paid, pending };
   };
 
   renderMonthPicker = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
+
     return (
       <Modal
         transparent={true}
@@ -163,9 +168,7 @@ class DailyPaymentList extends React.Component<Props, State> {
           onPress={() => this.setState({ showMonthPicker: false })}
         >
           <View style={styles.pickerContainer}>
-            <View
-              style={[styles.pickerContent, { backgroundColor: '#242424' }]}
-            >
+            <View style={styles.pickerContent}>
               <Text style={styles.pickerTitle}>Select Month</Text>
               <ScrollView style={styles.pickerScroll}>
                 {MONTHS.map(month => (
@@ -205,8 +208,31 @@ class DailyPaymentList extends React.Component<Props, State> {
       </Modal>
     );
   };
+  getMonthDisplay = (month: string): string => {
+    if (width < 375) {
+      const monthIndex = MONTHS.indexOf(month);
+      const abbreviated = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return abbreviated[monthIndex];
+    }
+    return month;
+  };
 
   renderYearPicker = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
@@ -222,9 +248,7 @@ class DailyPaymentList extends React.Component<Props, State> {
           onPress={() => this.setState({ showYearPicker: false })}
         >
           <View style={styles.pickerContainer}>
-            <View
-              style={[styles.pickerContent, { backgroundColor: '#242424' }]}
-            >
+            <View style={styles.pickerContent}>
               <Text style={styles.pickerTitle}>Select Year</Text>
               <ScrollView style={styles.pickerScroll}>
                 {years.map(year => (
@@ -266,6 +290,8 @@ class DailyPaymentList extends React.Component<Props, State> {
   };
 
   renderSummary = () => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
     const { paymentData } = this.state;
     if (paymentData.length === 0) return null;
 
@@ -273,12 +299,11 @@ class DailyPaymentList extends React.Component<Props, State> {
 
     return (
       <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#242424' }]}>
+        <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Feather name="pie-chart" size={20} color={ColorSecond} />
             <Text style={styles.summaryTitle}>Payment Summary</Text>
           </View>
-
           <View style={styles.summaryStats}>
             <View style={styles.statBox}>
               <View
@@ -290,7 +315,6 @@ class DailyPaymentList extends React.Component<Props, State> {
                 <Text style={styles.statLabel}>Total Amount</Text>
               </View>
             </View>
-
             <View style={styles.statBox}>
               <View
                 style={[styles.statContent, { backgroundColor: '#16a34a' }]}
@@ -301,7 +325,6 @@ class DailyPaymentList extends React.Component<Props, State> {
                 <Text style={styles.statLabel}>Paid</Text>
               </View>
             </View>
-
             <View style={styles.statBox}>
               <View
                 style={[styles.statContent, { backgroundColor: '#f59e0b' }]}
@@ -312,7 +335,6 @@ class DailyPaymentList extends React.Component<Props, State> {
                 <Text style={styles.statLabel}>Pending</Text>
               </View>
             </View>
-
             <View style={styles.statBox}>
               <View
                 style={[styles.statContent, { backgroundColor: '#6b7280' }]}
@@ -328,6 +350,9 @@ class DailyPaymentList extends React.Component<Props, State> {
   };
 
   renderPaymentCard = (item: DailyPayment, index: number) => {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
+
     return (
       <View key={index} style={styles.paymentCard}>
         <View
@@ -342,7 +367,6 @@ class DailyPaymentList extends React.Component<Props, State> {
             color="#fff"
           />
         </View>
-
         <View style={styles.paymentCardContent}>
           <View style={styles.paymentCardHeader}>
             <Text style={styles.paymentType} numberOfLines={1}>
@@ -357,22 +381,20 @@ class DailyPaymentList extends React.Component<Props, State> {
               <Text style={styles.statusText}>{item.IsPaid}</Text>
             </View>
           </View>
-
           <View style={styles.paymentCardDetails}>
             <View style={styles.detailItem}>
-              <Feather name="calendar" size={14} color="#999" />
+              <Feather name="calendar" size={14} color={theme.textSecondary} />
               <Text style={styles.detailText}>
                 Work: {this.formatDate(item.WorkDate)}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Feather name="clock" size={14} color="#999" />
+              <Feather name="clock" size={14} color={theme.textSecondary} />
               <Text style={styles.detailText}>
                 Added: {this.formatDate(item.AddDate)}
               </Text>
             </View>
           </View>
-
           <View style={styles.amountContainer}>
             <Text style={styles.amountLabel}>Amount:</Text>
             <Text style={styles.amountValue}>
@@ -385,6 +407,8 @@ class DailyPaymentList extends React.Component<Props, State> {
   };
 
   render() {
+    const { theme } = this.context;
+    const styles = createStyles(theme);
     const { paymentData, loading, error } = this.state;
 
     return (
@@ -413,15 +437,26 @@ class DailyPaymentList extends React.Component<Props, State> {
               onPress={() => this.setState({ showMonthPicker: true })}
               activeOpacity={0.8}
             >
-              <View style={[styles.selector, { backgroundColor: '#242424' }]}>
+              <View style={styles.selector}>
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <View style={styles.selectorTextContainer}>
-                  <Text style={styles.selectorLabel}>Month</Text>
-                  <Text style={styles.selectorValue}>
-                    {this.state.selectedMonth}
+                  <Text style={styles.selectorLabel} numberOfLines={1}>
+                    Month
+                  </Text>
+                  <Text
+                    style={styles.selectorValue}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {this.getMonthDisplay(this.state.selectedMonth)}
                   </Text>
                 </View>
-                <Feather name="chevron-down" size={20} color="#999" />
+                <Feather
+                  name="chevron-down"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </View>
             </TouchableOpacity>
 
@@ -430,28 +465,31 @@ class DailyPaymentList extends React.Component<Props, State> {
               onPress={() => this.setState({ showYearPicker: true })}
               activeOpacity={0.8}
             >
-              <View style={[styles.selector, { backgroundColor: '#242424' }]}>
+              <View style={styles.selector}>
                 <Feather name="calendar" size={20} color={ColorSecond} />
                 <View style={styles.selectorTextContainer}>
-                  <Text style={styles.selectorLabel}>Year</Text>
-                  <Text style={styles.selectorValue}>
+                  <Text style={styles.selectorLabel} numberOfLines={1}>
+                    Year
+                  </Text>
+                  <Text style={styles.selectorValue} numberOfLines={1}>
                     {this.state.selectedYear}
                   </Text>
                 </View>
-                <Feather name="chevron-down" size={20} color="#999" />
+                <Feather
+                  name="chevron-down"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </View>
             </TouchableOpacity>
           </View>
-
           {/* Get Payment List Button */}
           <TouchableOpacity
             onPress={this.handleDailyPaymentList}
             activeOpacity={0.8}
             disabled={loading}
           >
-            <View
-              style={[styles.checkButton, { backgroundColor: ColorSecond }]}
-            >
+            <View style={styles.checkButton}>
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
@@ -491,7 +529,11 @@ class DailyPaymentList extends React.Component<Props, State> {
           {!loading && paymentData.length === 0 && !error && (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
-                <Feather name="dollar-sign" size={48} color="#666" />
+                <Feather
+                  name="dollar-sign"
+                  size={48}
+                  color={theme.textSecondary}
+                />
               </View>
               <Text style={styles.emptyTitle}>No Payment Data</Text>
               <Text style={styles.emptyText}>
@@ -510,339 +552,349 @@ class DailyPaymentList extends React.Component<Props, State> {
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: ColorFirst,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#242424',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(182, 119, 29, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.3)',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  placeholder: {
-    width: 44,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  selectorsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  selectorHalf: {
-    flex: 1,
-  },
-  selector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    gap: 12,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  selectorTextContainer: {
-    flex: 1,
-  },
-  selectorLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
-  },
-  selectorValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  checkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    marginBottom: 20,
-  },
-  checkButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    marginBottom: 20,
-  },
-  errorText: {
-    flex: 1,
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  summaryContainer: {
-    marginBottom: 24,
-  },
-  summaryCard: {
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    justifyContent: 'space-between',
-  },
-  statBox: {
-    width: '48%',
-    minWidth: 150,
-  },
-  statContent: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '600',
-  },
-  listContainer: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  paymentCard: {
-    flexDirection: 'row',
-    backgroundColor: '#242424',
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  paymentCardLeft: {
-    width: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  paymentCardContent: {
-    flex: 1,
-    padding: 16,
-  },
-  paymentCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  paymentType: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    flex: 1,
-    marginRight: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#fff',
-    textTransform: 'uppercase',
-  },
-  paymentCardDetails: {
-    gap: 6,
-    marginBottom: 12,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 13,
-    color: '#999',
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  amountLabel: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '600',
-  },
-  amountValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: ColorSecond,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(182, 119, 29, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pickerContainer: {
-    width: '80%',
-    maxHeight: '70%',
-  },
-  pickerContent: {
-    borderRadius: 20,
-    padding: 20,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-  },
-  pickerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  pickerScroll: {
-    maxHeight: 400,
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: 'rgba(182, 119, 29, 0.05)',
-  },
-  pickerItemSelected: {
-    backgroundColor: 'rgba(182, 119, 29, 0.2)',
-    borderWidth: 1,
-    borderColor: ColorSecond,
-  },
-  pickerItemText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  pickerItemTextSelected: {
-    color: ColorSecond,
-    fontWeight: 'bold',
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 50,
+      paddingBottom: 20,
+      backgroundColor: theme.headerBackground,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+    },
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(182, 119, 29, 0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.3)',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.text,
+    },
+    placeholder: {
+      width: 44,
+    },
+    content: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    selectorsRow: {
+      flexDirection: 'row',
+      gap: 10, // Reduced from 12
+      marginBottom: 20,
+    },
+    selectorHalf: {
+      flex: 1,
+      minWidth: 0, // Allows proper shrinking
+    },
+    selector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12, // Reduced from 16
+      borderRadius: 16,
+      gap: 8, // Reduced from 12
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      backgroundColor: theme.cardBackground,
+      minHeight: 56, // Ensures consistent height
+    },
+    selectorTextContainer: {
+      flex: 1,
+      minWidth: 0, // Critical: allows flex child to shrink
+      paddingHorizontal: 2, // Small padding for text breathing room
+    },
+    selectorLabel: {
+      fontSize: 11, // Slightly smaller
+      color: theme.textSecondary,
+      marginBottom: 2,
+    },
+    selectorValue: {
+      fontSize: 15, // Reduced from 16
+      fontWeight: 'bold',
+      color: theme.text,
+    },
+    checkButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 16,
+      borderRadius: 16,
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      marginBottom: 20,
+      backgroundColor: ColorSecond,
+    },
+    checkButtonText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    errorContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(239, 68, 68, 0.3)',
+      marginBottom: 20,
+    },
+    errorText: {
+      flex: 1,
+      color: '#ef4444',
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    summaryContainer: {
+      marginBottom: 24,
+    },
+    summaryCard: {
+      borderRadius: 20,
+      padding: 20,
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      backgroundColor: theme.cardBackground,
+    },
+    summaryHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    summaryTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.text,
+    },
+    summaryStats: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      justifyContent: 'space-between',
+    },
+    statBox: {
+      width: '48%',
+      minWidth: 150,
+    },
+    statContent: {
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#fff',
+      marginBottom: 4,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: 'rgba(255, 255, 255, 0.9)',
+      fontWeight: '600',
+    },
+    listContainer: {
+      marginBottom: 20,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.text,
+    },
+    paymentCard: {
+      flexDirection: 'row',
+      backgroundColor: theme.cardBackground,
+      borderRadius: 16,
+      marginBottom: 12,
+      overflow: 'hidden',
+      elevation: 3,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+    },
+    paymentCardLeft: {
+      width: 70,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 16,
+    },
+    paymentCardContent: {
+      flex: 1,
+      padding: 16,
+    },
+    paymentCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    paymentType: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: theme.text,
+      flex: 1,
+      marginRight: 8,
+    },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    statusText: {
+      fontSize: 11,
+      fontWeight: 'bold',
+      color: '#fff',
+      textTransform: 'uppercase',
+    },
+    paymentCardDetails: {
+      gap: 6,
+      marginBottom: 12,
+    },
+    detailItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    detailText: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
+    amountContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.inputBorder,
+    },
+    amountLabel: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      fontWeight: '600',
+    },
+    amountValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: ColorSecond,
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 40,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: 'rgba(182, 119, 29, 0.1)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    pickerContainer: {
+      width: '80%',
+      maxHeight: '70%',
+    },
+    pickerContent: {
+      borderRadius: 20,
+      padding: 20,
+      elevation: 10,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.5,
+      shadowRadius: 20,
+      backgroundColor: theme.cardBackground,
+    },
+    pickerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    pickerScroll: {
+      maxHeight: 400,
+    },
+    pickerItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 8,
+      backgroundColor: 'rgba(182, 119, 29, 0.05)',
+    },
+    pickerItemSelected: {
+      backgroundColor: 'rgba(182, 119, 29, 0.2)',
+      borderWidth: 1,
+      borderColor: ColorSecond,
+    },
+    pickerItemText: {
+      fontSize: 16,
+      color: theme.text,
+      fontWeight: '500',
+    },
+    pickerItemTextSelected: {
+      color: ColorSecond,
+      fontWeight: 'bold',
+    },
+  });
+
 export default React.memo(DailyPaymentList);

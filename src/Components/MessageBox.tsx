@@ -1,5 +1,5 @@
 // MessageBox.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useContext } from 'react';
 import {
   Modal,
   View,
@@ -10,10 +10,10 @@ import {
   Keyboard,
   Animated,
 } from 'react-native';
-
 import LinearGradient from 'react-native-linear-gradient';
 import Feather from '@react-native-vector-icons/feather';
-import { ColorFirst, MessageType } from '../data/data';
+import { MessageType } from '../data/data';
+import { ThemeContext, Theme } from '../contexts/ThemeContext';
 
 const { height, width } = Dimensions.get('window');
 const ColorSecond = '#B6771D';
@@ -48,6 +48,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   onYes,
   onNo,
 }) => {
+  const { theme } = useContext(ThemeContext);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -121,6 +122,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   };
 
   const iconConfig = getIconConfig();
+  const styles = createStyles(theme);
 
   const renderButtons = () => {
     if (type === 'confirmation') {
@@ -243,123 +245,123 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  boxWrapper: {
-    width: '85%',
-    maxWidth: 400,
-  },
-  box: {
-    borderRadius: 24,
-    paddingTop: 30,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 119, 29, 0.2)',
-    backgroundColor: ColorFirst,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  messageIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  messageContainer: {
-    marginBottom: 24,
-    paddingHorizontal: 10,
-  },
-  message: {
-    fontSize: 16,
-    color: '#fff',
-    textAlign: 'center',
-    lineHeight: 24,
-
-    fontWeight: '500',
-  },
-  buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: 12,
-  },
-  buttonWrapper: {
-    flex: 1,
-  },
-  button: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    backgroundColor: ColorSecond,
-  },
-  button_secondary: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(182, 119, 29, 0.4)',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  buttonText_secondary: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  singleButtonWrapper: {
-    width: '100%',
-  },
-  singleButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-    borderRadius: 12,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    backgroundColor: ColorSecond,
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    boxWrapper: {
+      width: '85%',
+      maxWidth: 400,
+    },
+    box: {
+      borderRadius: 24,
+      paddingTop: 30,
+      paddingBottom: 24,
+      paddingHorizontal: 20,
+      elevation: 10,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.5,
+      shadowRadius: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(182, 119, 29, 0.2)',
+      backgroundColor: theme.cardBackground,
+    },
+    iconContainer: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    messageIconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 6,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+    },
+    messageContainer: {
+      marginBottom: 24,
+      paddingHorizontal: 10,
+    },
+    message: {
+      fontSize: 16,
+      color: theme.text,
+      textAlign: 'center',
+      lineHeight: 24,
+      fontWeight: '500',
+    },
+    buttonContainer: {
+      width: '100%',
+      alignItems: 'center',
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      gap: 12,
+    },
+    buttonWrapper: {
+      flex: 1,
+    },
+    button: {
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      backgroundColor: ColorSecond,
+    },
+    button_secondary: {
+      flex: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      backgroundColor: 'transparent',
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: 'rgba(182, 119, 29, 0.4)',
+    },
+    buttonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: 15,
+    },
+    buttonText_secondary: {
+      color: theme.text,
+      fontWeight: '600',
+      fontSize: 15,
+    },
+    singleButtonWrapper: {
+      width: '100%',
+    },
+    singleButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      width: '100%',
+      alignItems: 'center',
+      borderRadius: 12,
+      elevation: 4,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      backgroundColor: ColorSecond,
+    },
+  });
 
 export default MessageBox;

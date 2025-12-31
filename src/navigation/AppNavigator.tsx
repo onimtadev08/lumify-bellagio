@@ -20,6 +20,9 @@ import Settings from '../screens/Settings';
 import CustomDrawerContent from '../Components/CustomDrawerContent';
 import FontAwesome6 from '@react-native-vector-icons/fontawesome6';
 import { View } from 'react-native';
+import NewsListScreen from '../screens/NewsListScreen';
+import NewsDetailScreen from '../screens/NewsDetailScreen';
+import SupportScreen from '../screens/SupportScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Drawer = createDrawerNavigator<DrawerParamList>();
@@ -126,6 +129,21 @@ function DrawerNavigator({ route }: any) {
           drawerItemStyle: { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="NewsList"
+        component={NewsListScreen}
+        options={{
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="NewsDetail"
+        component={NewsDetailScreen}
+        options={{
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen name="SupportScreen" component={SupportScreen} />
     </Drawer.Navigator>
   );
 }

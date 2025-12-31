@@ -9,6 +9,7 @@ const endpoints = {
   attendanceCardurl: '/api/BellagioPay/AttendanceCard',
   dailypaymentUrl: '/api/BellagioPay/DailyPaymentList',
   passwordResetUrl: '/api/BellagioPay/PasswordReset',
+  deleteAccountUrl: '/api/BellagioPay/Deactivate',
 };
 
 const apiUrl = (key: keyof typeof endpoints, suffix = '') =>
@@ -206,6 +207,37 @@ export async function Login(UserName: string, Password: string) {
 
   return result;
 }
+export async function CheckLogin(UserName: string, Password: string) {
+  const url = Domain + '/api/BellagioPay/Login2';
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: UserName,
+      password: Password,
+    }),
+    redirect: 'follow',
+  });
+
+  console.log('Login response:', response);
+
+  if (!response.ok) {
+    throw new Error('Server Connection error');
+  }
+
+  const result = await response.json();
+
+  // Save tokens on successful login
+  if (result.token) {
+    await AsyncStorage.setItem('token', result.token);
+  }
+  if (result.refreshToken) {
+    await AsyncStorage.setItem('refreshToken', result.refreshToken);
+  }
+
+  return result;
+}
 
 export async function CreateSlip(month: string, year: string): Promise<string> {
   const empNo = await AsyncStorage.getItem('username');
@@ -273,5 +305,16 @@ export async function PasswordReset(
     username: empNo,
     oldPassword: oldPassword,
     newPassword: newPassword,
+  });
+}
+
+export async function DeleteAccount(): Promise<string> {
+  const empNo = await AsyncStorage.getItem('username');
+  const password = await AsyncStorage.getItem('password');
+
+  // Pass true for expectText since this endpoint returns text/plain
+  return postRequest<string>(apiUrl('deleteAccountUrl'), {
+    username: empNo,
+    password: password,
   });
 }
